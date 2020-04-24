@@ -20,7 +20,7 @@ let main () =
   in
   let is_archive_rocksdb i = i = 1 in
   let%bind testnet =
-    Coda_worker_testnet.test logger n block_production_keys
+    Coda_worker_testnet.test ~name logger n block_production_keys
       snark_work_public_keys Cli_lib.Arg_type.Work_selection_method.Sequence
       ~max_concurrent_connections:None ~is_archive_rocksdb
   in
@@ -40,7 +40,7 @@ let main () =
   let observed_hashset = State_hash.Hash_set.of_list observed_hashes in
   let%bind stored_transitions =
     Coda_worker_testnet.Api.get_all_transitions testnet 1
-      largest_account_public_key
+      (Account_id.create largest_account_public_key Token_id.default)
   in
   let stored_state_hashes =
     State_hash.Hash_set.of_list

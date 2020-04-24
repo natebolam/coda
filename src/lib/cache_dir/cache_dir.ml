@@ -7,17 +7,17 @@ let s3_install_path = "/tmp/s3_cache_dir"
 
 let manual_install_path = "/var/lib/coda"
 
-let genesis_dir_name =
+let genesis_dir_name (genesis_constants : Genesis_constants.t) =
   let digest =
-    (*include all the compile time constants that would affect the genesis
+    (*include all the time constants that would affect the genesis
     ledger and the proof*)
     let str =
       ( List.map
           [ Coda_compile_config.curve_size
-          ; Snark_params.ledger_depth
+          ; Coda_compile_config.ledger_depth
           ; Coda_compile_config.fake_accounts_target
-          ; Consensus.Constants.c
-          ; Consensus.Constants.k ]
+          ; Coda_compile_config.c
+          ; genesis_constants.protocol.k ]
           ~f:Int.to_string
       |> String.concat ~sep:"" )
       ^ Coda_compile_config.proof_level ^ Coda_compile_config.genesis_ledger
@@ -42,9 +42,15 @@ let brew_install_path =
   | _ ->
       "/usr/local/var/coda"
 
+let env_path =
+  match Sys.getenv "CODA_KEYS_PATH" with
+  | Some path ->
+      path
+  | None ->
+      manual_install_path
+
 let possible_paths base =
-  List.map
-    [manual_install_path; brew_install_path; s3_install_path; autogen_path]
+  List.map [env_path; brew_install_path; s3_install_path; autogen_path]
     ~f:(fun d -> d ^/ base)
 
 let load_from_s3 s3_bucket_prefix s3_install_path ~logger =

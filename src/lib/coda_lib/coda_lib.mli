@@ -14,6 +14,8 @@ exception Snark_worker_error of int
 
 exception Snark_worker_signal_interrupt of Signal.t
 
+val time_controller : t -> Block_time.Controller.t
+
 val subscription : t -> Coda_subscriptions.t
 
 (** Derived from local state (aka they may not reflect the latest public keys to which you've attempted to change *)
@@ -55,7 +57,19 @@ val request_work : t -> Snark_worker.Work.Spec.t option
 
 val work_selection_method : t -> (module Work_selector.Selection_method_intf)
 
-val add_work : t -> Snark_worker.Work.Result.t -> unit Deferred.t
+val add_work : t -> Snark_worker.Work.Result.t -> unit
+
+val add_transactions :
+     t
+  -> User_command_input.t list
+  -> ( Network_pool.Transaction_pool.Resource_pool.Diff.t
+     * Network_pool.Transaction_pool.Resource_pool.Diff.Rejected.t )
+     Deferred.Or_error.t
+
+val get_inferred_nonce_from_transaction_pool_and_ledger :
+  t -> Account_id.t -> Account.Nonce.t option Participating_state.t
+
+val active_or_bootstrapping : t -> unit Participating_state.t
 
 val best_staged_ledger : t -> Staged_ledger.t Participating_state.t
 
@@ -71,9 +85,9 @@ val sync_status : t -> Sync_status.t Coda_incremental.Status.Observer.t
 
 val visualize_frontier : filename:string -> t -> unit Participating_state.t
 
-val peers : t -> Network_peer.Peer.t list
+val peers : t -> Network_peer.Peer.t list Deferred.t
 
-val initial_peers : t -> Host_and_port.t list
+val initial_peers : t -> Coda_net2.Multiaddr.t list
 
 val client_port : t -> int
 
@@ -81,14 +95,12 @@ val validated_transitions :
   t -> External_transition.Validated.t Strict_pipe.Reader.t
 
 module Root_diff : sig
+  [%%versioned:
   module Stable : sig
     module V1 : sig
       type t = {user_commands: User_command.Stable.V1.t list; root_length: int}
-      [@@deriving bin_io]
     end
-
-    module Latest = V1
-  end
+  end]
 
   type t = Stable.Latest.t
 end
@@ -100,6 +112,8 @@ val initialization_finish_signal : t -> unit Ivar.t
 val dump_tf : t -> string Or_error.t
 
 val best_path : t -> State_hash.t list option
+
+val best_chain : t -> Transition_frontier.Breadcrumb.t list option
 
 val transaction_pool : t -> Network_pool.Transaction_pool.t
 

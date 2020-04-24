@@ -9,8 +9,8 @@ open Coda_base
 open Coda_state
 open Blockchain_snark
 
-[%%if
-defined consensus_mechanism]
+[%%ifdef
+consensus_mechanism]
 
 open Snark_params
 
@@ -26,12 +26,14 @@ module Worker_state = struct
       Transaction_snark.t -> message:Sok_message.t -> bool
   end
 
+  (* bin_io required by rpc_parallel *)
   type init_arg = {conf_dir: string option; logger: Logger.Stable.Latest.t}
-  [@@deriving bin_io]
+  [@@deriving bin_io_unversioned]
 
   type t = (module S) Deferred.t
 
   let create {logger; _} : t Deferred.t =
+    Memory_stats.log_memory_stats logger ~process:"verifier" ;
     Deferred.return
       (let%map bc_vk = Snark_keys.blockchain_verification ()
        and tx_vk = Snark_keys.transaction_verification () in
@@ -86,7 +88,8 @@ module Worker = struct
     module Worker_state = Worker_state
 
     module Connection_state = struct
-      type init_arg = unit [@@deriving bin_io]
+      (* bin_io required by rpc_parallel *)
+      type init_arg = unit [@@deriving bin_io_unversioned]
 
       type t = unit
     end
@@ -190,7 +193,7 @@ let create ~logger ~pids ~conf_dir =
          return
          @@ Logger.error logger ~module_:__MODULE__ ~location:__LOC__
               "Verifier stderr: $stderr"
-              ~metadata:[("stdout", `String stderr)] ) ;
+              ~metadata:[("stderr", `String stderr)] ) ;
   connection
 
 let verify_blockchain_snark t chain =

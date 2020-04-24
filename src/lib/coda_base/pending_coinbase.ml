@@ -577,6 +577,9 @@ struct
 
       let empty = var_of_t empty
 
+      let create_with (t : var) =
+        {empty with state= Coinbase_stack_state.create ~init:t.state.init}
+
       let if_ = if_
     end
   end
@@ -758,13 +761,13 @@ struct
         in
         let%bind amount1_equal_to_zero = equal_to_zero amount in
         let%bind amount2_equal_to_zero = equal_to_zero rem_amount in
+        (*if no update then coinbase amount has to be zero*)
         let%bind () =
           with_label __LOC__
             (let%bind check = Boolean.equal no_update amount1_equal_to_zero in
              Boolean.Assert.is_true check)
         in
         let%bind no_coinbase =
-          let%bind no_update = Boolean.(no_update && amount1_equal_to_zero) in
           Boolean.(no_update || no_coinbase_in_this_stack)
         in
         (* TODO: Optimize here since we are pushing twice to the same stack *)
@@ -966,7 +969,7 @@ struct
 
   let curr_stack_id (t : t) = List.hd t.pos_list
 
-  let previous_stack t =
+  let current_stack t =
     let prev_stack_id =
       Option.value ~default:Stack_id.zero (curr_stack_id t)
     in
@@ -983,7 +986,7 @@ struct
           Merkle_tree.get_exn t.tree index )
     in
     if is_new_stack then
-      let%map prev_stack = previous_stack t in
+      let%map prev_stack = current_stack t in
       {res with state= Coinbase_stack_state.create ~init:prev_stack.state.curr}
     else Ok res
 
@@ -1096,7 +1099,7 @@ struct
             let prev_state =
               if is_new_stack then
                 let stack =
-                  previous_stack !pending_coinbase |> Or_error.ok_exn
+                  current_stack !pending_coinbase |> Or_error.ok_exn
                 in
                 { Coinbase_stack_state.Poly.init= stack.state.curr
                 ; curr= stack.state.curr }
@@ -1113,14 +1116,14 @@ struct
 end
 
 module T = Make (struct
-  let depth = Snark_params.pending_coinbase_depth
+  let depth = Coda_compile_config.pending_coinbase_depth
 end)
 
 include T
 
 let%test_unit "add stack + remove stack = initial tree " =
   let pending_coinbases = ref (create () |> Or_error.ok_exn) in
-  let coinbases_gen = Quickcheck.Generator.list_non_empty Coinbase.gen in
+  let coinbases_gen = Quickcheck.Generator.list_non_empty Coinbase.Gen.gen in
   Quickcheck.test coinbases_gen ~trials:50 ~f:(fun cbs ->
       Async.Thread_safe.block_on_async_exn (fun () ->
           let is_new_stack = ref true in
@@ -1179,7 +1182,7 @@ let add_coinbase_with_zero_checks (type t)
 
 let%test_unit "Checked_stack = Unchecked_stack" =
   let open Quickcheck in
-  test ~trials:20 (Generator.tuple2 Stack.gen Coinbase.gen)
+  test ~trials:20 (Generator.tuple2 Stack.gen Coinbase.Gen.gen)
     ~f:(fun (base, cb) ->
       let coinbase_data = Coinbase_data.of_coinbase cb in
       let unchecked = Stack.push_coinbase cb base in
@@ -1200,7 +1203,7 @@ let%test_unit "Checked_stack = Unchecked_stack" =
 let%test_unit "Checked_tree = Unchecked_tree" =
   let open Quickcheck in
   let pending_coinbases = create () |> Or_error.ok_exn in
-  test ~trials:20 (Generator.tuple2 Coinbase.gen State_body_hash.gen)
+  test ~trials:20 (Generator.tuple2 Coinbase.Gen.gen State_body_hash.gen)
     ~f:(fun (coinbase, state_body_hash) ->
       let coinbase_data = Coinbase_data.of_coinbase coinbase in
       let is_new_stack, action =
@@ -1237,7 +1240,7 @@ let%test_unit "Checked_tree = Unchecked_tree" =
 
 let%test_unit "Checked_tree = Unchecked_tree after pop" =
   let open Quickcheck in
-  test ~trials:20 (Generator.tuple2 Coinbase.gen State_body_hash.gen)
+  test ~trials:20 (Generator.tuple2 Coinbase.Gen.gen State_body_hash.gen)
     ~f:(fun (coinbase, state_body_hash) ->
       let pending_coinbases = create () |> Or_error.ok_exn in
       let coinbase_data = Coinbase_data.of_coinbase coinbase in
@@ -1369,6 +1372,6 @@ let%test_unit "push and pop multiple stacks" =
   in
   let coinbase_lists_gen =
     Quickcheck.Generator.(
-      list (list (Generator.tuple2 Coinbase.gen State_body_hash.gen)))
+      list (list (Generator.tuple2 Coinbase.Gen.gen State_body_hash.gen)))
   in
   test ~trials:100 coinbase_lists_gen ~f:add_remove_check

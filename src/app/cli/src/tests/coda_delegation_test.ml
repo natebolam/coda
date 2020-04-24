@@ -10,12 +10,13 @@ include Heartbeat.Make ()
 let main () =
   let logger = Logger.create () in
   let num_block_producers = 3 in
+  let accounts = Lazy.force Test_genesis_ledger.accounts in
   let snark_work_public_keys ndx =
-    List.nth_exn Test_genesis_ledger.accounts ndx
+    List.nth_exn accounts ndx
     |> fun (_, acct) -> Some (Account.public_key acct)
   in
   let%bind testnet =
-    Coda_worker_testnet.test logger num_block_producers Option.some
+    Coda_worker_testnet.test ~name logger num_block_producers Option.some
       snark_work_public_keys Cli_lib.Arg_type.Work_selection_method.Sequence
       ~max_concurrent_connections:None
   in
@@ -23,7 +24,7 @@ let main () =
   (* keep CI alive *)
   Deferred.don't_wait_for (print_heartbeat logger) ;
   (* dump account info to log *)
-  List.iteri Test_genesis_ledger.accounts ~f:(fun ndx ((_, acct) as record) ->
+  List.iteri accounts ~f:(fun ndx ((_, acct) as record) ->
       let keypair = Test_genesis_ledger.keypair_of_account_record_exn record in
       Logger.info logger ~module_:__MODULE__ ~location:__LOC__
         "Account: $account_number"
@@ -38,15 +39,13 @@ let main () =
                 @@ Account.public_key acct ) )
           ; ("balance", `Int (Currency.Balance.to_int acct.balance)) ] ) ;
   (* second account is delegator; see genesis_ledger/test_delegation_ledger.ml *)
-  let ((_, delegator_account) as delegator) =
-    List.nth_exn Test_genesis_ledger.accounts 2
-  in
+  let ((_, delegator_account) as delegator) = List.nth_exn accounts 2 in
   let delegator_pubkey = Account.public_key delegator_account in
   let delegator_keypair =
     Test_genesis_ledger.keypair_of_account_record_exn delegator
   in
   (* zeroth account is delegatee *)
-  let _, delegatee_account = List.nth_exn Test_genesis_ledger.accounts 0 in
+  let _, delegatee_account = List.nth_exn accounts 0 in
   let delegatee_pubkey = Account.public_key delegatee_account in
   let worker = testnet.workers.(0) in
   (* setup readers for produced blocks by delegator, delegatee *)
@@ -64,19 +63,19 @@ let main () =
   Deferred.don't_wait_for
     (Pipe_lib.Linear_pipe.iter delegator_transition_reader
        ~f:(fun {With_hash.data= transition; _} ->
-         assert (
-           Public_key.Compressed.equal transition.creator delegator_pubkey ) ;
-         Logger.info logger ~module_:__MODULE__ ~location:__LOC__
-           "Observed block produced by delegator $delegator"
-           ~metadata:
-             [ ( "delegator"
-               , `String
-                   (Public_key.Compressed.to_base58_check delegator_pubkey) )
-             ] ;
-         assert (not !delegatee_has_produced) ;
-         incr delegator_production_count ;
-         if Int.equal !delegator_production_count delegator_production_goal
-         then Ivar.fill delegator_ivar () ;
+         if Public_key.Compressed.equal transition.creator delegator_pubkey
+         then (
+           Logger.info logger ~module_:__MODULE__ ~location:__LOC__
+             "Observed block produced by delegator $delegator"
+             ~metadata:
+               [ ( "delegator"
+                 , `String
+                     (Public_key.Compressed.to_base58_check delegator_pubkey)
+                 ) ] ;
+           assert (not !delegatee_has_produced) ;
+           incr delegator_production_count ;
+           if Int.equal !delegator_production_count delegator_production_goal
+           then Ivar.fill delegator_ivar () ) ;
          return () )) ;
   Logger.info logger ~module_:__MODULE__ ~location:__LOC__
     "Started delegator transition reader" ;
@@ -91,19 +90,19 @@ let main () =
   Deferred.don't_wait_for
     (Pipe_lib.Linear_pipe.iter delegatee_transition_reader
        ~f:(fun {With_hash.data= transition; _} ->
-         assert (
-           Public_key.Compressed.equal transition.creator delegatee_pubkey ) ;
-         Logger.info logger ~module_:__MODULE__ ~location:__LOC__
-           "Observed block produced by delegatee $delegatee"
-           ~metadata:
-             [ ( "delegatee"
-               , `String
-                   (Public_key.Compressed.to_base58_check delegatee_pubkey) )
-             ] ;
-         delegatee_has_produced := true ;
-         incr delegatee_production_count ;
-         if Int.equal !delegatee_production_count delegatee_production_goal
-         then Ivar.fill delegatee_ivar () ;
+         if Public_key.Compressed.equal transition.creator delegatee_pubkey
+         then (
+           Logger.info logger ~module_:__MODULE__ ~location:__LOC__
+             "Observed block produced by delegatee $delegatee"
+             ~metadata:
+               [ ( "delegatee"
+                 , `String
+                     (Public_key.Compressed.to_base58_check delegatee_pubkey)
+                 ) ] ;
+           delegatee_has_produced := true ;
+           incr delegatee_production_count ;
+           if Int.equal !delegatee_production_count delegatee_production_goal
+           then Ivar.fill delegatee_ivar () ) ;
          return () )) ;
   Logger.info logger ~module_:__MODULE__ ~location:__LOC__
     "Started delegatee transition reader" ;

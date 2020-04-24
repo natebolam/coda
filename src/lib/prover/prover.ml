@@ -24,11 +24,11 @@ module Extend_blockchain_input = struct
   end]
 
   type t = Stable.Latest.t =
-    { chain: Blockchain.Stable.V1.t
-    ; next_state: Protocol_state.Value.Stable.V1.t
-    ; block: Snark_transition.Value.Stable.V1.t
-    ; prover_state: Consensus.Data.Prover_state.Stable.V1.t
-    ; pending_coinbase: Pending_coinbase_witness.Stable.V1.t }
+    { chain: Blockchain.t
+    ; next_state: Protocol_state.Value.t
+    ; block: Snark_transition.Value.t
+    ; prover_state: Consensus.Data.Prover_state.t
+    ; pending_coinbase: Pending_coinbase_witness.t }
   [@@deriving sexp]
 end
 
@@ -50,8 +50,9 @@ module Worker_state = struct
     val verify : Protocol_state.Value.t -> Proof.t -> bool
   end
 
+  (* bin_io required by rpc_parallel *)
   type init_arg = {conf_dir: string; logger: Logger.Stable.Latest.t}
-  [@@deriving bin_io]
+  [@@deriving bin_io_unversioned]
 
   type t = (module S) Deferred.t
 
@@ -94,7 +95,7 @@ module Worker_state = struct
                    ; update= block }
                  in
                  let main x =
-                   Tick.handle (Keys.Step.main x)
+                   Tick.handle (Keys.Step.main ~logger x)
                      (Consensus.Data.Prover_state.handler state_for_handler
                         ~pending_coinbase)
                  in
@@ -144,7 +145,7 @@ module Worker_state = struct
                    ; update= block }
                  in
                  let main x =
-                   Tick.handle (Keys.Step.main x)
+                   Tick.handle (Keys.Step.main ~logger x)
                      (Consensus.Data.Prover_state.handler state_for_handler
                         ~pending_coinbase)
                  in
@@ -182,6 +183,7 @@ module Worker_state = struct
          | _ ->
              failwith "unknown proof_level set in compile config"
        in
+       Memory_stats.log_memory_stats logger ~process:"prover" ;
        m)
 
   let get = Fn.id
@@ -228,7 +230,8 @@ module Worker = struct
     module Worker_state = Worker_state
 
     module Connection_state = struct
-      type init_arg = unit [@@deriving bin_io]
+      (* bin_io required by rpc_parallel *)
+      type init_arg = unit [@@deriving bin_io_unversioned]
 
       type t = unit
     end

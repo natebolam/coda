@@ -16,7 +16,7 @@ let main () =
     else None
   in
   let%bind testnet =
-    Coda_worker_testnet.test logger n block_production_keys
+    Coda_worker_testnet.test ~name logger n block_production_keys
       snark_work_public_keys Cli_lib.Arg_type.Work_selection_method.Sequence
       ~max_concurrent_connections:None
   in
@@ -28,8 +28,8 @@ let main () =
    Pipe_lib.Linear_pipe.iter (Option.value_exn sync_status_pipe_opt)
      ~f:(fun sync_status ->
        Logger.trace logger ~module_:__MODULE__ ~location:__LOC__
-         !"Bootstrap node received status: %s"
-         (Sync_status.to_string sync_status) ;
+         ~metadata:[("status", Sync_status.to_yojson sync_status)]
+         "Bootstrap node received status: $status" ;
        Hash_set.add previous_status sync_status ;
        Deferred.unit ))
   |> don't_wait_for ;

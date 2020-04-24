@@ -21,6 +21,7 @@ val create :
   -> base_hash:Frontier_hash.t
   -> consensus_local_state:Consensus.Data.Local_state.t
   -> max_length:int
+  -> genesis_constants:Genesis_constants.t
   -> t
 
 val close : t -> unit
@@ -37,7 +38,8 @@ val apply_diffs :
      t
   -> Diff.Full.E.t list
   -> ignore_consensus_local_state:bool
-  -> [`New_root of Root_identifier.t option]
+  -> [ `New_root_and_diffs_with_mutants of
+       Root_identifier.t option * Diff.Full.With_mutant.t list ]
 
 module For_tests : sig
   val equal : t -> t -> bool

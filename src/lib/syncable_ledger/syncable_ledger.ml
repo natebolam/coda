@@ -1,6 +1,7 @@
 open Core
 open Async_kernel
 open Pipe_lib
+open Network_peer
 
 (** Run f recursively n times, starting with value r.
     e.g. funpow 3 f r = f (f (f r)) *)
@@ -536,7 +537,9 @@ end = struct
       let sender = Envelope.Incoming.sender env in
       let answer = Envelope.Incoming.data env in
       Logger.trace t.logger ~module_:__MODULE__ ~location:__LOC__
-        ~metadata:[("root_hash", Root_hash.to_yojson root_hash)]
+        ~metadata:
+          [ ("root_hash", Root_hash.to_yojson root_hash)
+          ; ("query", Query.to_yojson Addr.to_yojson query) ]
         "Handle answer for $root_hash" ;
       if not (Root_hash.equal root_hash (desired_root_exn t)) then (
         Logger.trace t.logger ~module_:__MODULE__ ~location:__LOC__

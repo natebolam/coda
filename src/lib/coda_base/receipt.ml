@@ -5,38 +5,36 @@
 
 open Core_kernel
 
-[%%if
-defined consensus_mechanism]
+[%%ifdef
+consensus_mechanism]
 
 open Snark_params.Tick
+
+[%%else]
+
+open Snark_params_nonconsensus
+module Random_oracle = Random_oracle_nonconsensus.Random_oracle
 
 [%%endif]
 
 module Chain_hash = struct
   include Data_hash.Make_full_size ()
 
-  module Base58_check = Base58_check.Make (struct
+  module Base58_check = Codable.Make_base58_check (struct
+    include Stable.Latest
+
     let description = "Receipt chain hash"
 
     let version_byte = Base58_check.Version_bytes.receipt_chain_hash
   end)
 
-  let to_string t =
-    Binable.to_string (module Stable.Latest) t |> Base58_check.encode
+  [%%define_locally
+  Base58_check.String_ops.(to_string, of_string)]
 
-  let of_string s =
-    Base58_check.decode_exn s |> Binable.of_string (module Stable.Latest)
+  [%%define_locally
+  Base58_check.(to_yojson, of_yojson)]
 
-  include Codable.Make_of_string (struct
-    type nonrec t = t
-
-    let to_string = to_string
-
-    let of_string = of_string
-  end)
-
-  let empty =
-    of_hash (Pedersen.(State.salt "CodaReceiptEmpty") |> Pedersen.State.digest)
+  let empty = of_hash Random_oracle.(salt "CodaReceiptEmpty" |> digest)
 
   let cons payload (t : t) =
     let open Random_oracle in
@@ -44,8 +42,9 @@ module Chain_hash = struct
       (pack_input
          Input.(
            append
-             Transaction_union_payload.(
-               to_input (of_user_command_payload payload))
+             ( Transaction_union_payload.(
+                 to_input (of_user_command_payload payload))
+               : (Field.t, bool) Input.t )
              (field (t :> Field.t))))
     |> of_hash
 
@@ -90,9 +89,9 @@ module Chain_hash = struct
         in
         assert (equal unchecked checked) )
 
-  [%%endif]
-
   let%test_unit "json" =
     Quickcheck.test ~trials:20 gen ~sexp_of:sexp_of_t ~f:(fun t ->
-        assert (For_tests.check_encoding ~equal t) )
+        assert (Base58_check.For_tests.check_encoding ~equal t) )
+
+  [%%endif]
 end

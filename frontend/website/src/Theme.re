@@ -46,6 +46,9 @@ module Colors = {
   let clover = `rgb((22, 168, 85));
   let lightClover = `rgba((118, 205, 135, 0.12));
 
+  let kernelAlpha = a => `rgba((0, 212, 0, a));
+  let kernel = kernelAlpha(1.);
+
   let tealAlpha = a => `rgba((71, 130, 160, a));
   let teal = tealAlpha(1.);
   let tealBlueAlpha = a => `rgba((0, 170, 170, a));
@@ -285,6 +288,15 @@ module H4 = {
     ]);
 
   let semiBold = merge([basic, style([fontWeight(`semiBold)])]);
+  let header =
+    style([
+      Typeface.ibmplexsans,
+      textAlign(`center),
+      fontSize(`rem(1.5)),
+      lineHeight(`rem(2.0)),
+      fontWeight(`semiBold),
+      color(Colors.saville),
+    ]);
 
   let (wide, wideStyles) =
     generateStyles([
@@ -367,6 +379,13 @@ module Body = {
       fontSize(`rem(0.8125)),
       opacity(0.5),
       lineHeight(`rem(1.25)),
+    ]);
+
+  let basic_small =
+    style([
+      Typeface.ibmplexsans,
+      fontSize(`rem(0.8125)),
+      color(Colors.saville),
     ]);
 };
 
