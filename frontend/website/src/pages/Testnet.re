@@ -119,9 +119,7 @@ module Styles = {
         marginLeft(`auto),
         marginRight(`auto),
         marginBottom(`rem(1.5)),
-        width(`rem(10.)),
-        height(`rem(2.5)),
-        display(`block),
+        display(`flex),
         cursor(`pointer),
         borderRadius(`px(4)),
         padding2(~v=`rem(0.25), ~h=`rem(3.)),
@@ -230,21 +228,14 @@ module Section = {
        } else {
          <>
            <div className=Styles.gradientSection> children </div>
-           <span
+           <div
              className=Styles.expandButton
              onClick={_ => setExpanded(_ => true)}>
-             {React.string("Expand " ++ name)}
-             <div
-               className=Css.(
-                 style([
-                   position(`relative),
-                   bottom(`rem(2.6)),
-                   left(`rem(9.6)),
-                 ])
-               )>
+             <div> {React.string("Expand " ++ name)} </div>
+             <div className=Css.(style([marginLeft(`rem(0.5))]))>
                {React.string({js| ↓|js})}
              </div>
-           </span>
+           </div>
          </>;
        }}
     </div>;
@@ -347,7 +338,7 @@ let make = (~challenges as _, ~testnetName as _) => {
             </h1>
             // href="https://testnet-points-frontend-dot-o1labs-192920.appspot.com/"
             <a
-              href="http://bit.ly/TestnetBetaLeaderboard"
+              href="https://bit.ly/TestnetLeaderboard"
               target="_blank"
               className=Styles.headerLink>
               {React.string({j|View Full Leaderboard\u00A0→|j})}
@@ -419,8 +410,7 @@ let make = (~challenges as _, ~testnetName as _) => {
               </ul>
               <p className=Styles.markdownStyles>
                 {React.string("Check out all challenges ")}
-                <a
-                  href="https://forums.codaprotocol.com/t/testnet-beta-release-3-1-challenges/271">
+                <a href="https://bit.ly/3dNmPle">
                   {React.string(" here ")}
                 </a>
                 {React.string("and join ")}

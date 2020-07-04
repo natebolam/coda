@@ -83,13 +83,13 @@ val unregister_mask_exn : Mask.Attached.t -> Mask.t
  * work off of this type *)
 type maskable_ledger = t
 
-val with_ledger : f:(t -> 'a) -> 'a
+val with_ledger : depth:int -> f:(t -> 'a) -> 'a
 
-val with_ephemeral_ledger : f:(t -> 'a) -> 'a
+val with_ephemeral_ledger : depth:int -> f:(t -> 'a) -> 'a
 
-val create : ?directory_name:string -> unit -> t
+val create : ?directory_name:string -> depth:int -> unit -> t
 
-val create_ephemeral : unit -> t
+val create_ephemeral : depth:int -> unit -> t
 
 val of_database : Db.t -> t
 
@@ -107,7 +107,9 @@ module Undo : sig
     module Common : sig
       type t = Undo.User_command_undo.Common.t =
         { user_command: User_command.t
-        ; previous_receipt_chain_hash: Receipt.Chain_hash.t }
+        ; previous_receipt_chain_hash: Receipt.Chain_hash.t
+        ; fee_payer_timing: Account.Timing.t
+        ; source_timing: Account.Timing.t option }
       [@@deriving sexp]
     end
 
@@ -115,6 +117,8 @@ module Undo : sig
       type t = Undo.User_command_undo.Body.t =
         | Payment of {previous_empty_accounts: Account_id.t list}
         | Stake_delegation of {previous_delegate: Public_key.Compressed.t}
+        | Create_new_token of {created_token: Token_id.t}
+        | Create_token_account
         | Failed
       [@@deriving sexp]
     end
@@ -152,16 +156,31 @@ end
 val create_new_account_exn : t -> Account_id.t -> Account.t -> unit
 
 val apply_user_command :
-     t
+     constraint_constants:Genesis_constants.Constraint_constants.t
+  -> txn_global_slot:Coda_numbers.Global_slot.t
+  -> t
   -> User_command.With_valid_signature.t
   -> Undo.User_command_undo.t Or_error.t
 
-val apply_transaction : t -> Transaction.t -> Undo.t Or_error.t
+val apply_transaction :
+     constraint_constants:Genesis_constants.Constraint_constants.t
+  -> txn_global_slot:Coda_numbers.Global_slot.t
+  -> t
+  -> Transaction.t
+  -> Undo.t Or_error.t
 
-val undo : t -> Undo.t -> unit Or_error.t
+val undo :
+     constraint_constants:Genesis_constants.Constraint_constants.t
+  -> t
+  -> Undo.t
+  -> unit Or_error.t
 
 val merkle_root_after_user_command_exn :
-  t -> User_command.With_valid_signature.t -> Ledger_hash.t
+     constraint_constants:Genesis_constants.Constraint_constants.t
+  -> txn_global_slot:Coda_numbers.Global_slot.t
+  -> t
+  -> User_command.With_valid_signature.t
+  -> Ledger_hash.t * [`Next_available_token of Token_id.t]
 
 val create_empty : t -> Account_id.t -> Path.t * Account.t
 

@@ -19,7 +19,8 @@ end)
     { resource_pool: Resource_pool.t
     ; logger: Logger.t
     ; write_broadcasts: Resource_pool.Diff.t Linear_pipe.Writer.t
-    ; read_broadcasts: Resource_pool.Diff.t Linear_pipe.Reader.t }
+    ; read_broadcasts: Resource_pool.Diff.t Linear_pipe.Reader.t
+    ; constraint_constants: Genesis_constants.Constraint_constants.t }
 
   let resource_pool {resource_pool; _} = resource_pool
 
@@ -27,16 +28,17 @@ end)
 
   let apply_and_broadcast t (pool_diff, valid_cb, result_cb) =
     let rebroadcast (diff', rejected) =
-      valid_cb true ;
       result_cb (Ok (diff', rejected)) ;
       if Resource_pool.Diff.is_empty diff' then (
         Logger.debug t.logger ~module_:__MODULE__ ~location:__LOC__
           "Refusing to rebroadcast. Pool diff apply feedback: empty diff" ;
+        valid_cb false ;
         Deferred.unit )
       else (
         Logger.trace t.logger ~module_:__MODULE__ ~location:__LOC__
           "Broadcasting %s"
           (Resource_pool.Diff.summary diff') ;
+        valid_cb true ;
         Linear_pipe.write t.write_broadcasts diff' )
     in
     match%bind Resource_pool.Diff.unsafe_apply t.resource_pool pool_diff with
@@ -52,11 +54,15 @@ end)
           (Error.to_string_hum e) ;
         Deferred.unit
 
-  let of_resource_pool_and_diffs resource_pool ~logger ~incoming_diffs
-      ~local_diffs ~tf_diffs =
+  let of_resource_pool_and_diffs resource_pool ~logger ~constraint_constants
+      ~incoming_diffs ~local_diffs ~tf_diffs =
     let read_broadcasts, write_broadcasts = Linear_pipe.create () in
     let network_pool =
-      {resource_pool; logger; read_broadcasts; write_broadcasts}
+      { resource_pool
+      ; logger
+      ; read_broadcasts
+      ; write_broadcasts
+      ; constraint_constants }
     in
     (*proiority: Transition frontier diffs > local diffs > incomming diffs*)
     Strict_pipe.Reader.Merge.iter
@@ -123,8 +129,8 @@ end)
     in
     go ()
 
-  let create ~config ~incoming_diffs ~local_diffs ~frontier_broadcast_pipe
-      ~logger =
+  let create ~config ~constraint_constants ~incoming_diffs ~local_diffs
+      ~frontier_broadcast_pipe ~logger =
     (*Diffs from tansition frontier extensions*)
     let tf_diff_reader, tf_diff_writer =
       Strict_pipe.(
@@ -132,9 +138,10 @@ end)
     in
     let t =
       of_resource_pool_and_diffs
-        (Resource_pool.create ~config ~logger ~frontier_broadcast_pipe
-           ~tf_diff_writer)
-        ~incoming_diffs ~local_diffs ~logger ~tf_diffs:tf_diff_reader
+        (Resource_pool.create ~constraint_constants ~config ~logger
+           ~frontier_broadcast_pipe ~tf_diff_writer)
+        ~constraint_constants ~incoming_diffs ~local_diffs ~logger
+        ~tf_diffs:tf_diff_reader
     in
     don't_wait_for (rebroadcast_loop t logger) ;
     t

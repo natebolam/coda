@@ -12,12 +12,16 @@ module type S = sig
 
   module Account :
     Merkle_ledger.Intf.Account
-    with type account_id := Account_id.t
+    with type token_id := Token_id.t
+     and type account_id := Account_id.t
      and type balance := Balance.t
 
   module Hash : Merkle_ledger.Intf.Hash with type account := Account.t
 
   module Location : Merkle_ledger.Location_intf.S
+
+  module Location_binable :
+    Core_kernel.Hashable.S_binable with type t := Location.t
 
   module Base :
     Base_merkle_tree_intf.S

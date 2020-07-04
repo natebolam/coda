@@ -22,9 +22,10 @@ module Actions = struct
     | Sent_invalid_signature
         (** Peer sent us something with a signature that doesn't check *)
     | Sent_invalid_proof  (** Peer sent us a proof that does not verify. *)
-    | Sent_invalid_fork_id  (** Peer sent block with fork ID in wrong format *)
-    | Sent_mismatched_fork_id
-        (** Peer sent block with fork ID not matching daemon fork ID *)
+    | Sent_invalid_protocol_version
+        (** Peer sent block with invalid protocol version *)
+    | Sent_mismatched_protocol_version
+        (** Peer sent block with protocol version not matching daemon protocol version *)
     | Has_invalid_genesis_protocol_state
         (**Peer gossiped a transition that has a different genesis protocol state from that of mine*)
     | Sent_invalid_transition_chain_merkle_proof
@@ -53,7 +54,7 @@ module Actions = struct
 
   (** The action they took, paired with a message and associated JSON metadata
       for logging. *)
-  type t = action * (string * (string, Yojson.Safe.json) List.Assoc.t) option
+  type t = action * (string * (string, Yojson.Safe.t) List.Assoc.t) option
 
   let to_trust_response (action, _) =
     let open Peer_trust.Trust_response in
@@ -96,10 +97,10 @@ module Actions = struct
         Insta_ban
     | Sent_invalid_proof ->
         Insta_ban
-    | Sent_invalid_fork_id ->
+    | Sent_invalid_protocol_version ->
         Insta_ban
-    (* allow nodes to send wrong current fork ID a small number of times *)
-    | Sent_mismatched_fork_id ->
+    (* allow nodes to send wrong current protocol version a small number of times *)
+    | Sent_mismatched_protocol_version ->
         Trust_decrease 0.25
     (*Genesis ledger (and the genesis protocol state) is now a runtime config, so we should ban nodes that are running using a different genesis ledger*)
     | Has_invalid_genesis_protocol_state ->
@@ -138,7 +139,7 @@ module Actions = struct
     | Sent_old_gossip ->
         Trust_decrease old_gossip_increment
 
-  let to_log : t -> string * (string, Yojson.Safe.json) List.Assoc.t =
+  let to_log : t -> string * (string, Yojson.Safe.t) List.Assoc.t =
    fun (action, extra_opt) ->
     match extra_opt with
     | None ->

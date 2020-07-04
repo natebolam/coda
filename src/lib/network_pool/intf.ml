@@ -24,7 +24,8 @@ module type Resource_pool_base_intf = sig
     transition_frontier_diff -> t -> unit Deferred.t
 
   val create :
-       frontier_broadcast_pipe:transition_frontier Option.t
+       constraint_constants:Genesis_constants.Constraint_constants.t
+    -> frontier_broadcast_pipe:transition_frontier Option.t
                                Broadcast_pipe.Reader.t
     -> config:Config.t
     -> logger:Logger.t
@@ -107,6 +108,7 @@ module type Network_pool_base_intf = sig
 
   val create :
        config:config
+    -> constraint_constants:Genesis_constants.Constraint_constants.t
     -> incoming_diffs:(resource_pool_diff Envelope.Incoming.t * (bool -> unit))
                       Strict_pipe.Reader.t
     -> local_diffs:( resource_pool_diff
@@ -121,6 +123,7 @@ module type Network_pool_base_intf = sig
   val of_resource_pool_and_diffs :
        resource_pool
     -> logger:Logger.t
+    -> constraint_constants:Genesis_constants.Constraint_constants.t
     -> incoming_diffs:(resource_pool_diff Envelope.Incoming.t * (bool -> unit))
                       Strict_pipe.Reader.t
     -> local_diffs:( resource_pool_diff
@@ -150,6 +153,7 @@ module type Snark_resource_pool_intf = sig
   val make_config :
     trust_system:Trust_system.t -> verifier:Verifier.t -> Config.t
 
+  (* TODO: we don't seem to be using the bin_io here, can this type be removed? *)
   type serializable [@@deriving bin_io]
 
   val of_serializable : serializable -> config:Config.t -> logger:Logger.t -> t
@@ -174,7 +178,7 @@ module type Snark_resource_pool_intf = sig
     -> Transaction_snark_work.Statement.t
     -> Ledger_proof.t One_or_two.t Priced_proof.t option
 
-  val snark_pool_json : t -> Yojson.Safe.json
+  val snark_pool_json : t -> Yojson.Safe.t
 
   val all_completed_work : t -> Transaction_snark_work.Info.t list
 
@@ -186,25 +190,24 @@ end
 module type Snark_pool_diff_intf = sig
   type resource_pool
 
-  module Stable : sig
-    module V1 : sig
-      type t =
-        | Add_solved_work of
-            Transaction_snark_work.Statement.Stable.V1.t
-            * Ledger_proof.Stable.V1.t One_or_two.Stable.V1.t
-              Priced_proof.Stable.V1.t
-      [@@deriving bin_io, compare, sexp, to_yojson, version]
-    end
+  type t =
+    | Add_solved_work of
+        Transaction_snark_work.Statement.t
+        * Ledger_proof.t One_or_two.t Priced_proof.t
+  [@@deriving compare, sexp]
 
-    module Latest = V1
-  end
-
-  type t = Stable.Latest.t [@@deriving compare, sexp]
+  type compact =
+    { work: Transaction_snark_work.Statement.t
+    ; fee: Currency.Fee.t
+    ; prover: Signature_lib.Public_key.Compressed.t }
+  [@@deriving yojson]
 
   include
     Resource_pool_diff_intf with type t := t and type pool := resource_pool
 
-  val compact_json : t -> Yojson.Safe.json
+  val to_compact : t -> compact
+
+  val compact_json : t -> Yojson.Safe.t
 
   val of_result :
        ( ('a, 'b, 'c) Snark_work_lib.Work.Single.Spec.t
@@ -217,42 +220,14 @@ end
 module type Transaction_pool_diff_intf = sig
   type resource_pool
 
-  [%%versioned:
-  module Stable : sig
-    module V1 : sig
-      type t = User_command.Stable.V1.t list [@@deriving sexp, to_yojson]
-    end
-  end]
-
-  type t = Stable.Latest.t [@@deriving sexp]
+  type t = User_command.t list [@@deriving sexp, of_yojson]
 
   module Diff_error : sig
-    module Stable : sig
-      module V1 : sig
-        type t =
-          | Insufficient_replace_fee
-          | Invalid_signature
-          | Duplicate
-          | Sender_account_does_not_exist
-          | Insufficient_amount_for_account_creation
-          | Delegate_not_found
-          | Invalid_nonce
-          | Insufficient_funds
-          | Insufficient_fee
-          | Overflow
-        [@@deriving sexp, yojson, bin_io]
-      end
-
-      module Latest = V1
-    end
-
-    type t = Stable.Latest.t =
+    type t =
       | Insufficient_replace_fee
       | Invalid_signature
       | Duplicate
       | Sender_account_does_not_exist
-      | Insufficient_amount_for_account_creation
-      | Delegate_not_found
       | Invalid_nonce
       | Insufficient_funds
       | Insufficient_fee
@@ -261,16 +236,7 @@ module type Transaction_pool_diff_intf = sig
   end
 
   module Rejected : sig
-    module Stable : sig
-      module V1 : sig
-        type t = (User_command.Stable.V1.t * Diff_error.Stable.V1.t) list
-        [@@deriving sexp, bin_io, yojson, version]
-      end
-
-      module Latest = V1
-    end
-
-    type t = Stable.Latest.t [@@deriving sexp, yojson]
+    type t = (User_command.t * Diff_error.t) list [@@deriving sexp, yojson]
   end
 
   include

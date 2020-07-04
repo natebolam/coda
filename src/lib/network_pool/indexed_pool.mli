@@ -16,7 +16,7 @@ type t [@@deriving sexp_of]
 (* TODO sexp is debug only, remove *)
 
 (** Empty pool *)
-val empty : t
+val empty : constraint_constants:Genesis_constants.Constraint_constants.t -> t
 
 (** How many transactions are currently in the pool *)
 val size : t -> int
@@ -43,7 +43,6 @@ val handle_committed_txn :
      t
   -> User_command.With_valid_signature.t
   -> fee_payer_balance:Currency.Amount.t
-  -> source_balance:Currency.Amount.t
   -> ( t * User_command.With_valid_signature.t Sequence.t
      , [ `Queued_txns_by_sender of
          string * User_command.With_valid_signature.t Sequence.t ] )
@@ -61,11 +60,16 @@ val add_from_gossip_exn :
   -> Account_nonce.t
   -> Currency.Amount.t
   -> ( t * User_command.With_valid_signature.t Sequence.t
-     , [> `Invalid_nonce
-       | `Insufficient_funds
+     , [> `Invalid_nonce of
+          [ `Expected of Account.Nonce.t
+          | `Between of Account.Nonce.t * Account.Nonce.t ]
+          * Account.Nonce.t
+       | `Insufficient_funds of
+         [`Balance of Currency.Amount.t] * Currency.Amount.t
        | (* NOTE: don't punish for this, attackers can induce nodes to banlist
           each other that way! *)
-         `Insufficient_replace_fee
+         `Insufficient_replace_fee of
+         [`Replace_fee of Currency.Fee.t] * Currency.Fee.t
        | `Overflow ] )
      Result.t
 (** Returns the commands dropped as a result of adding the command, which will

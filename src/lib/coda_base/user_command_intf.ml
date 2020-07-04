@@ -104,19 +104,19 @@ module type S = sig
 
   val fee_payer : t -> Account_id.t
 
+  val fee_excess : t -> Fee_excess.t
+
   val token : t -> Token_id.t
 
   val source_pk : t -> Public_key.Compressed.t
 
-  val source : t -> Account_id.t
+  val source : next_available_token:Token_id.t -> t -> Account_id.t
 
   val receiver_pk : t -> Public_key.Compressed.t
 
-  val receiver : t -> Account_id.t
+  val receiver : next_available_token:Token_id.t -> t -> Account_id.t
 
   val amount : t -> Currency.Amount.t option
-
-  val is_payment : t -> bool
 
   val memo : t -> User_command_memo.t
 
@@ -125,7 +125,13 @@ module type S = sig
   (* for filtering *)
   val minimum_fee : Currency.Fee.t
 
-  val is_trivial : t -> bool
+  val has_insufficient_fee : t -> bool
+
+  val tag : t -> Transaction_union_tag.t
+
+  val tag_string : t -> string
+
+  val next_available_token : t -> Token_id.t -> Token_id.t
 
   include Gen_intf with type t := t
 
@@ -172,7 +178,8 @@ module type S = sig
   (** Forget the signature check. *)
   val forget_check : With_valid_signature.t -> t
 
-  val accounts_accessed : t -> Account_id.t list
+  val accounts_accessed :
+    next_available_token:Token_id.t -> t -> Account_id.t list
 
   val filter_by_participant : t list -> Public_key.Compressed.t -> t list
 

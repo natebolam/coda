@@ -11,6 +11,38 @@ let refused_answer_query_string = "Refused to answer_query"
 
 type exn += No_initial_peers
 
+type Structured_log_events.t +=
+  | Block_received of {state_hash: State_hash.t; sender: Envelope.Sender.t}
+  [@@deriving register_event {msg= "Received a block from $sender"}]
+
+type Structured_log_events.t +=
+  | Snark_work_received of
+      { work: Snark_pool.Resource_pool.Diff.compact
+      ; sender: Envelope.Sender.t }
+  [@@deriving
+    register_event {msg= "Received Snark-pool diff $work from $sender"}]
+
+type Structured_log_events.t +=
+  | Transactions_received of
+      { txns: Transaction_pool.Resource_pool.Diff.t
+      ; sender: Envelope.Sender.t }
+  [@@deriving
+    register_event {msg= "Received transaction-pool diff $txns from $sender"}]
+
+type Structured_log_events.t += Gossip_new_state of {state_hash: State_hash.t}
+  [@@deriving register_event {msg= "Broadcasting new state over gossip net"}]
+
+type Structured_log_events.t +=
+  | Gossip_transaction_pool_diff of
+      { txns: Transaction_pool.Resource_pool.Diff.t }
+  [@@deriving
+    register_event {msg= "Broadcasting snark pool diff over gossip net"}]
+
+type Structured_log_events.t +=
+  | Gossip_snark_pool_diff of {work: Snark_pool.Resource_pool.Diff.compact}
+  [@@deriving
+    register_event {msg= "Broadcasting transaction pool diff over gossip net"}]
+
 (* INSTRUCTIONS FOR ADDING A NEW RPC:
  *   - define a new module under the Rpcs module
  *   - add an entry to the Rpcs.rpc GADT definition for the new module (type ('query, 'response) rpc, below)
@@ -38,7 +70,10 @@ module Rpcs = struct
         type query = State_hash.t
 
         type response =
-          (Staged_ledger.Scan_state.t * Ledger_hash.t * Pending_coinbase.t)
+          ( Staged_ledger.Scan_state.t
+          * Ledger_hash.t
+          * Pending_coinbase.t
+          * Coda_state.Protocol_state.value list )
           option
       end
 
@@ -62,7 +97,8 @@ module Rpcs = struct
         type response =
           ( Staged_ledger.Scan_state.Stable.V1.t
           * Ledger_hash.Stable.V1.t
-          * Pending_coinbase.Stable.V1.t )
+          * Pending_coinbase.Stable.V1.t
+          * Coda_state.Protocol_state.Value.Stable.V1.t list )
           option
         [@@deriving bin_io, version {rpc}]
 
@@ -434,7 +470,10 @@ module Rpcs = struct
         module V1 = struct
           type t =
             { node_ip_addr: Core.Unix.Inet_addr.Stable.V1.t
+                  [@to_yojson
+                    fun ip_addr -> `String (Unix.Inet_addr.to_string ip_addr)]
             ; node_peer_id: Network_peer.Peer.Id.Stable.V1.t
+                  [@to_yojson fun peer_id -> `String peer_id]
             ; peers: Network_peer.Peer.Stable.V1.t list
             ; block_producers:
                 Signature_lib.Public_key.Compressed.Stable.V1.t list
@@ -443,33 +482,9 @@ module Rpcs = struct
                 ( Core.Unix.Inet_addr.Stable.V1.t
                 * Trust_system.Peer_status.Stable.V1.t )
                 list
+                  [@to_yojson yojson_of_ban_statuses]
             ; k_block_hashes: State_hash.Stable.V1.t list }
-
-          (* N.B.: the [@@to_yojson ...] per-field spec didn't seem to work, so we write
-             the full function in gory detail
-           *)
-          let to_yojson t =
-            `Assoc
-              [ ( "node_ip_addr"
-                , `String (Unix.Inet_addr.to_string t.node_ip_addr) )
-              ; ("node_peer_id", `String t.node_peer_id)
-              ; ( "peers"
-                , `List
-                    (List.map t.peers ~f:Network_peer.Peer.Stable.V1.to_yojson)
-                )
-              ; ( "block_producers"
-                , `List
-                    (List.map t.block_producers
-                       ~f:
-                         Signature_lib.Public_key.Compressed.Stable.V1
-                         .to_yojson) )
-              ; ( "protocol_state_hash"
-                , State_hash.Stable.V1.to_yojson t.protocol_state_hash )
-              ; ("ban_statuses", yojson_of_ban_statuses t.ban_statuses)
-              ; ( "k_block_hashes"
-                , `List
-                    (List.map t.k_block_hashes
-                       ~f:State_hash.Stable.V1.to_yojson) ) ]
+          [@@deriving to_yojson]
 
           let to_latest = Fn.id
         end
@@ -632,6 +647,7 @@ module Config = struct
     ; time_controller: Block_time.Controller.t
     ; consensus_local_state: Consensus.Data.Local_state.t
     ; genesis_ledger_hash: Ledger_hash.t
+    ; constraint_constants: Genesis_constants.Constraint_constants.t
     ; creatable_gossip_net: Gossip_net.Any.creatable
     ; is_seed: bool
     ; log_gossip_heard: log_gossip_heard }
@@ -658,15 +674,20 @@ type t =
   ; first_received_message_signal: unit Ivar.t }
 [@@deriving fields]
 
-let offline_time =
-  Block_time.Span.of_ms @@ Int64.of_int Coda_compile_config.inactivity_ms
+let offline_time
+    {Genesis_constants.Constraint_constants.block_window_duration_ms; _} =
+  (* This is a bit of a hack, see #3232. *)
+  let inactivity_ms = block_window_duration_ms * 8 in
+  Block_time.Span.of_ms @@ Int64.of_int inactivity_ms
 
-let setup_timer time_controller sync_state_broadcaster =
-  Block_time.Timeout.create time_controller offline_time ~f:(fun _ ->
+let setup_timer ~constraint_constants time_controller sync_state_broadcaster =
+  Block_time.Timeout.create time_controller (offline_time constraint_constants)
+    ~f:(fun _ ->
       Broadcast_pipe.Writer.write sync_state_broadcaster `Offline
       |> don't_wait_for )
 
-let online_broadcaster time_controller received_messages =
+let online_broadcaster ~constraint_constants time_controller received_messages
+    =
   let online_reader, online_writer = Broadcast_pipe.create `Offline in
   let init =
     Block_time.Timeout.create time_controller
@@ -676,7 +697,7 @@ let online_broadcaster time_controller received_messages =
   Strict_pipe.Reader.fold received_messages ~init ~f:(fun old_timeout _ ->
       let%map () = Broadcast_pipe.Writer.write online_writer `Online in
       Block_time.Timeout.cancel time_controller old_timeout () ;
-      setup_timer time_controller online_writer )
+      setup_timer ~constraint_constants time_controller online_writer )
   |> Deferred.ignore |> don't_wait_for ;
   online_reader
 
@@ -728,23 +749,24 @@ let create (config : Config.t)
     in
     result
   in
-  let validate_fork_ids ~rpc_name sender external_transition =
+  let validate_protocol_versions ~rpc_name sender external_transition =
     let open Trust_system.Actions in
     let External_transition.{valid_current; valid_next; matches_daemon} =
-      External_transition.fork_id_status external_transition
+      External_transition.protocol_version_status external_transition
     in
     let%bind () =
       if valid_current then return ()
       else
         let actions =
-          ( Sent_invalid_fork_id
+          ( Sent_invalid_protocol_version
           , Some
-              ( "$rpc_name: external transition with invalid current fork ID"
+              ( "$rpc_name: external transition with invalid current protocol \
+                 version"
               , [ ("rpc_name", `String rpc_name)
-                ; ( "current_fork_id"
+                ; ( "current_protocol_version"
                   , `String
-                      (Fork_id.to_string
-                         (External_transition.current_fork_id
+                      (Protocol_version.to_string
+                         (External_transition.current_protocol_version
                             external_transition)) ) ] ) )
         in
         Trust_system.record_envelope_sender config.trust_system config.logger
@@ -754,15 +776,16 @@ let create (config : Config.t)
       if valid_next then return ()
       else
         let actions =
-          ( Sent_invalid_fork_id
+          ( Sent_invalid_protocol_version
           , Some
-              ( "$rpc_name: external transition with invalid next fork ID"
+              ( "$rpc_name: external transition with invalid proposed \
+                 protocol version"
               , [ ("rpc_name", `String rpc_name)
-                ; ( "next_fork_id"
+                ; ( "proposed_protocol_version"
                   , `String
-                      (Fork_id.to_string
+                      (Protocol_version.to_string
                          (Option.value_exn
-                            (External_transition.next_fork_id_opt
+                            (External_transition.proposed_protocol_version_opt
                                external_transition))) ) ] ) )
         in
         Trust_system.record_envelope_sender config.trust_system config.logger
@@ -772,18 +795,19 @@ let create (config : Config.t)
       if matches_daemon then return ()
       else
         let actions =
-          ( Sent_mismatched_fork_id
+          ( Sent_mismatched_protocol_version
           , Some
-              ( "$rpc_name: current fork ID in external transition does not \
-                 match daemon current fork ID"
+              ( "$rpc_name: current protocol version in external transition \
+                 does not match daemon current protocol version"
               , [ ("rpc_name", `String rpc_name)
-                ; ( "current_fork_id"
+                ; ( "current_protocol_version"
                   , `String
-                      (Fork_id.to_string
-                         (External_transition.current_fork_id
+                      (Protocol_version.to_string
+                         (External_transition.current_protocol_version
                             external_transition)) )
-                ; ( "daemon_current_fork_id"
-                  , `String Fork_id.(to_string @@ get_current ()) ) ] ) )
+                ; ( "daemon_current_protocol_version"
+                  , `String Protocol_version.(to_string @@ get_current ()) ) ]
+              ) )
         in
         Trust_system.record_envelope_sender config.trust_system config.logger
           sender actions
@@ -847,10 +871,10 @@ let create (config : Config.t)
     | None ->
         record_unknown_item result sender action_msg msg_args
     | Some {proof= _, ext_trans; _} ->
-        let%map valid_fork_ids =
-          validate_fork_ids ~rpc_name:"Get_ancestry" sender ext_trans
+        let%map valid_protocol_versions =
+          validate_protocol_versions ~rpc_name:"Get_ancestry" sender ext_trans
         in
-        if valid_fork_ids then result else None
+        if valid_protocol_versions then result else None
   in
   let get_best_tip_rpc conn ~version:_ query =
     Logger.debug config.logger ~module_:__MODULE__ ~location:__LOC__
@@ -865,15 +889,17 @@ let create (config : Config.t)
     | None ->
         record_unknown_item result sender action_msg msg_args
     | Some {data= data_ext_trans; proof= _, proof_ext_trans} ->
-        let%bind valid_data_fork_ids =
-          validate_fork_ids ~rpc_name:"Get_best_tip (data)" sender
+        let%bind valid_data_protocol_versions =
+          validate_protocol_versions ~rpc_name:"Get_best_tip (data)" sender
             data_ext_trans
         in
-        let%map valid_proof_fork_ids =
-          validate_fork_ids ~rpc_name:"Get_best_tip (proof)" sender
+        let%map valid_proof_protocol_versions =
+          validate_protocol_versions ~rpc_name:"Get_best_tip (proof)" sender
             proof_ext_trans
         in
-        if valid_data_fork_ids && valid_proof_fork_ids then result else None
+        if valid_data_protocol_versions && valid_proof_protocol_versions then
+          result
+        else None
   in
   let get_telemetry_data_rpc conn ~version:_ query =
     Logger.debug config.logger ~module_:__MODULE__ ~location:__LOC__
@@ -916,11 +942,14 @@ let create (config : Config.t)
     | None ->
         record_unknown_item result sender action_msg msg_args
     | Some ext_trans ->
-        let%map valid_fork_ids =
+        let%map valid_protocol_versions =
           Deferred.List.map ext_trans
-            ~f:(validate_fork_ids ~rpc_name:"Get_transition_chain" sender)
+            ~f:
+              (validate_protocol_versions ~rpc_name:"Get_transition_chain"
+                 sender)
         in
-        if List.for_all valid_fork_ids ~f:(Bool.equal true) then result
+        if List.for_all valid_protocol_versions ~f:(Bool.equal true) then
+          result
         else None
   in
   let ban_notify_rpc conn ~version:_ ban_until =
@@ -978,7 +1007,8 @@ let create (config : Config.t)
       (Gossip_net.Any.received_message_reader gossip_net)
   in
   let online_status =
-    online_broadcaster config.time_controller online_notifier
+    online_broadcaster ~constraint_constants:config.constraint_constants
+      config.time_controller online_notifier
   in
   let first_received_message_signal = Ivar.create () in
   let states, snark_pool_diffs, transaction_pool_diffs =
@@ -995,48 +1025,40 @@ let create (config : Config.t)
                  |> Protocol_state.blockchain_state
                  |> Blockchain_state.timestamp |> Block_time.to_time )) ;
             if config.log_gossip_heard.new_state then
-              Logger.debug config.logger ~module_:__MODULE__ ~location:__LOC__
-                "Received a block $block from $sender"
+              Logger.Str.debug config.logger ~module_:__MODULE__
+                ~location:__LOC__
                 ~metadata:
-                  [ ("external_transition", External_transition.to_yojson state)
-                  ; ( "state_hash"
-                    , External_transition.state_hash state
-                      |> State_hash.to_yojson )
-                  ; ( "sender"
-                    , Envelope.(Sender.to_yojson (Incoming.sender envelope)) )
-                  ] ;
+                  [("external_transition", External_transition.to_yojson state)]
+                (Block_received
+                   { state_hash= External_transition.state_hash state
+                   ; sender= Envelope.Incoming.sender envelope }) ;
             `Fst
               ( Envelope.Incoming.map envelope ~f:(fun _ -> state)
               , Block_time.now config.time_controller
               , valid_cb )
         | Snark_pool_diff diff ->
             if config.log_gossip_heard.snark_pool_diff then
-              Logger.debug config.logger ~module_:__MODULE__ ~location:__LOC__
-                "Received Snark-pool diff $work from $sender"
-                ~metadata:
-                  [ ("work", Snark_pool.Resource_pool.Diff.compact_json diff)
-                  ; ( "sender"
-                    , Envelope.(Sender.to_yojson (Incoming.sender envelope)) )
-                  ] ;
+              Logger.Str.debug config.logger ~module_:__MODULE__
+                ~location:__LOC__
+                (Snark_work_received
+                   { work= Snark_pool.Resource_pool.Diff.to_compact diff
+                   ; sender= Envelope.Incoming.sender envelope }) ;
             Coda_metrics.(
               Counter.inc_one Snark_work.completed_snark_work_received_gossip) ;
             `Snd (Envelope.Incoming.map envelope ~f:(fun _ -> diff), valid_cb)
         | Transaction_pool_diff diff ->
             if config.log_gossip_heard.transaction_pool_diff then
-              Logger.debug config.logger ~module_:__MODULE__ ~location:__LOC__
-                "Received transaction-pool diff $txns from $sender"
-                ~metadata:
-                  [ ("txns", Transaction_pool.Resource_pool.Diff.to_yojson diff)
-                  ; ( "sender"
-                    , Envelope.(Sender.to_yojson (Incoming.sender envelope)) )
-                  ] ;
+              Logger.Str.debug config.logger ~module_:__MODULE__
+                ~location:__LOC__
+                (Transactions_received
+                   {txns= diff; sender= Envelope.Incoming.sender envelope}) ;
             let diff' =
               List.filter diff ~f:(fun cmd ->
-                  if User_command.is_trivial cmd then (
+                  if User_command.has_insufficient_fee cmd then (
                     Logger.debug config.logger ~module_:__MODULE__
                       ~location:__LOC__
-                      "Filtering trivial user command in transaction-pool \
-                       diff $cmd from $sender"
+                      "Filtering user command with insufficient fee from \
+                       transaction-pool diff $cmd from $sender"
                       ~metadata:
                         [ ("cmd", User_command.to_yojson cmd)
                         ; ( "sender"
@@ -1091,20 +1113,26 @@ let fill_first_received_message_signal {first_received_message_signal; _} =
   Ivar.fill_if_empty first_received_message_signal ()
 
 (* TODO: Have better pushback behavior *)
-let broadcast t msg =
-  Logger.trace t.logger ~module_:__MODULE__ ~location:__LOC__
+let broadcast t ~log_msg msg =
+  Logger.Str.trace t.logger ~module_:__MODULE__ ~location:__LOC__
     ~metadata:[("message", Gossip_net.Message.msg_to_yojson msg)]
-    !"Broadcasting %s over gossip net"
-    (Gossip_net.Message.summary msg) ;
+    log_msg ;
   Gossip_net.Any.broadcast t.gossip_net msg
 
-let broadcast_state t state = broadcast t (Gossip_net.Message.New_state state)
+let broadcast_state t state =
+  broadcast t
+    (Gossip_net.Message.New_state (With_hash.data state))
+    ~log_msg:(Gossip_new_state {state_hash= With_hash.hash state})
 
 let broadcast_transaction_pool_diff t diff =
   broadcast t (Gossip_net.Message.Transaction_pool_diff diff)
+    ~log_msg:(Gossip_transaction_pool_diff {txns= diff})
 
 let broadcast_snark_pool_diff t diff =
   broadcast t (Gossip_net.Message.Snark_pool_diff diff)
+    ~log_msg:
+      (Gossip_snark_pool_diff
+         {work= Snark_pool.Resource_pool.Diff.to_compact diff})
 
 (* TODO: This is kinda inefficient *)
 let find_map xs ~f =
