@@ -7,14 +7,14 @@ module Styles = {
       bottom(`zero),
       height(`rem(106.)),
       padding2(~v=`rem(4.), ~h=`rem(1.25)),
-      backgroundImage(`url("/static/img/Small.png")),
+      backgroundImage(`url("/static/img/Small.jpg")),
       backgroundSize(`cover),
       media(
         Theme.MediaQuery.tablet,
         [
           padding2(~v=`rem(4.), ~h=`rem(2.68)),
           height(`rem(75.)),
-          backgroundImage(`url("/static/img/Medium.png")),
+          backgroundImage(`url("/static/img/Medium.jpg")),
         ],
       ),
       media(
@@ -22,13 +22,13 @@ module Styles = {
         [
           padding2(~v=`rem(5.5), ~h=`rem(9.5)),
           height(`auto),
-          backgroundImage(`url("/static/img/Large.png")),
+          backgroundImage(`url("/static/img/Large.jpg")),
         ],
       ),
     ]);
   let backToTopButton =
     style([
-      position(`absolute),
+      position(`fixed),
       right(`rem(1.2)),
       bottom(`rem(1.2)),
       media(
@@ -45,7 +45,7 @@ module Styles = {
       display(`flex),
       height(`rem(2.62)),
       flexDirection(`column),
-      alignContent(`center),
+      alignItems(`center),
       justifyContent(`spaceBetween),
       color(white),
     ]);
@@ -231,25 +231,20 @@ module Subfooter = {
   let make = () => {
     <div className=Styles.column>
       <div className=Styles.linksContainer>
-        <Next.Link href="">
-          <a className=Styles.smallLinks>
-            {React.string("Mina Foundation")}
-          </a>
-        </Next.Link>
-        <Next.Link href="">
-          <a className=Styles.smallLinks> {React.string("O(1) Labs")} </a>
-        </Next.Link>
-        <Next.Link href="">
-          <a className=Styles.smallLinks>
-            {React.string("Code of Conduct")}
-          </a>
-        </Next.Link>
-        <Next.Link href="">
+        <a href="https://o1labs.org/" className=Styles.smallLinks>
+          {React.string("O(1) Labs")}
+        </a>
+        <a
+          href="https://github.com/MinaProtocol/mina/blob/develop/CODE_OF_CONDUCT.md"
+          className=Styles.smallLinks>
+          {React.string("Code of Conduct")}
+        </a>
+        <Next.Link href="/privacy">
           <a className=Styles.smallLinks>
             {React.string("Privacy Policy")}
           </a>
         </Next.Link>
-        <Next.Link href="">
+        <Next.Link href="/tos">
           <a className=Styles.smallLinks>
             {React.string("Terms of Service")}
           </a>
@@ -277,10 +272,10 @@ let make = () => {
         paddingX=1.1
         paddingY=0.75
         dark=true>
-        <span className=Styles.backToTopButtonContent>
+        <div className=Styles.backToTopButtonContent>
           <Icon kind=Icon.ArrowUpMedium size=1. />
           {React.string("Top")}
-        </span>
+        </div>
       </Button>
     </div>
   </footer>;
