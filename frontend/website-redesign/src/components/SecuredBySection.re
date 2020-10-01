@@ -10,7 +10,7 @@ module Styles = {
       ),
       media(
         Theme.MediaQuery.desktop,
-        [backgroundImage(url("/static/img/SecuredByLarge.png"))],
+        [backgroundImage(url("/static/img/SecuredByLarge.jpg"))],
       ),
     ]);
   let grid =
@@ -221,7 +221,7 @@ let make = () => {
         </div>
       </div>
       <div className=Styles.gridItem3>
-        <img className=Styles.dotsImage src="/static/img/SecuredByDots.png" />
+        <img className=Styles.dotsImage src="/static/img/SecuredByDots.svg" />
         <span className=Styles.textColumn>
           <Rule color=Theme.Colors.white />
           <h3 className=Styles.h3White>
@@ -234,7 +234,7 @@ let make = () => {
           </p>
           <Spacer height=2. />
           <span className=Styles.button>
-            <Button bgColor=Theme.Colors.orange dark=true href="/docs">
+            <Button bgColor=Theme.Colors.orange dark=true href=`Internal("/docs")>
               {React.string("Get Started")}
               <Icon kind=Icon.ArrowRightMedium />
             </Button>

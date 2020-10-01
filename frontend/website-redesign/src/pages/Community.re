@@ -49,7 +49,7 @@ module Styles = {
     ]);
   let leaderboardBackground =
     style([
-      backgroundImage(`url("/static/img/backgrounds/SectionBackground.png")),
+      backgroundImage(`url("/static/img/backgrounds/SectionBackground.jpg")),
       backgroundSize(`cover),
     ]);
 
@@ -209,7 +209,7 @@ let make = (~profiles) => {
     />
     <ButtonBar
       kind=ButtonBar.CommunityLanding
-      backgroundImg="/static/img/ButtonBarBackground.png"
+      backgroundImg="/static/img/ButtonBarBackground.jpg"
     />
     <FeaturedSingleRow
       row=FeaturedSingleRow.Row.{
@@ -218,7 +218,7 @@ let make = (~profiles) => {
         title: "Genesis Program",
         description: "Calling all block producers and snark producers, community leaders and content creators! Join Genesis, meet great people, play an essential role in the network, and earn Mina tokens.",
         textColor: Theme.Colors.white,
-        image: "/static/img/BlogLandingHero.png",
+        image: "/static/img/BlogLandingHero.jpg",
         background:
           Image("/static/img/community-page/CommunityBackground.png"),
         contentBackground: Image("/static/img/BecomeAGenesisMember.jpg"),
@@ -227,7 +227,7 @@ let make = (~profiles) => {
           buttonTextColor: Theme.Colors.white,
           buttonText: "Apply now",
           dark: true,
-          href: "/genesis",
+          href: `Internal("/genesis"),
         },
       }>
       <Spacer height=4. />
@@ -276,7 +276,7 @@ let make = (~profiles) => {
                "Mina rewards community members for contributing to Testnet with Testnet Points, making them stronger applicants for the Genesis Program. ",
              )}
           </p>
-          <Button bgColor=Theme.Colors.orange href="/leaderboard">
+          <Button bgColor=Theme.Colors.orange href=`Internal("/leaderboard")>
             {React.string("See The Full Leaderboard")}
             <Icon kind=Icon.ArrowRightSmall />
           </Button>
@@ -310,7 +310,7 @@ let make = (~profiles) => {
             buttonColor: Theme.Colors.white,
             buttonTextColor: Theme.Colors.orange,
             dark: false,
-            href: Constants.codeOfConductUrl,
+            href: `External(Constants.codeOfConductUrl),
           },
         }
       />

@@ -105,7 +105,7 @@ let make = () => {
                "Mina rewards community members for contributing to Testnet with Testnet Points, making them stronger applicants for the Genesis Program. ",
              )}
           </p>
-          <Button bgColor=Theme.Colors.orange href="/leaderboard">
+          <Button bgColor=Theme.Colors.orange href=`Internal("/leaderboard")>
             {React.string("See The Full Leaderboard")}
             <Icon kind=Icon.ArrowRightSmall />
           </Button>
@@ -137,14 +137,14 @@ let make = () => {
             buttonColor: Theme.Colors.mint,
             buttonTextColor: Theme.Colors.digitalBlack,
             dark: true,
-            href: "",
+            href: `External("http://bit.ly/TestnetChallenges"),
           },
         }
       />
       <TestnetRetroModule />
       <ButtonBar
         kind=ButtonBar.HelpAndSupport
-        backgroundImg="/static/img/ButtonBarBackground.png"
+        backgroundImg="/static/img/ButtonBarBackground.jpg"
       />
     </div>
   </Page>;

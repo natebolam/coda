@@ -93,16 +93,11 @@ let make = () => {
            />
            <div className=Styles.submitButton>
              <Button
-               onClick=[%bs.raw
-                 {j| () => window.location =
-                 "https://share.hsforms.com/1olz9N8_zTHW-RKQus2o3Kw4xuul"
-               |j}
-               ]
                height={`rem(3.25)}
                width={`rem(7.93)}
                href={
-                 "https://share.hsforms.com/1olz9N8_zTHW-RKQus2o3Kw4xuul?email="
-                 ++ email
+                 `External("https://share.hsforms.com/1olz9N8_zTHW-RKQus2o3Kw4xuul?email="
+                 ++ email)
                }
                dark=true>
                {React.string("Submit")}

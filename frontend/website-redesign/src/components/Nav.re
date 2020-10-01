@@ -179,7 +179,12 @@ module NavGroup = {
         onClick={_ => setActive(_ => !active)}>
         {React.string(label)}
       </span>
-      {active ? <ul className=Styles.navGroup> children </ul> : React.null}
+      {active
+         ? <ul
+             onClick={_ => setActive(_ => !active)} className=Styles.navGroup>
+             children
+           </ul>
+         : React.null}
     </>;
   };
 };
@@ -241,7 +246,7 @@ let make = (~dark=false) => {
       <NavLink label="Blog" href="/blog" dark />
       <Spacer width=1.5 />
       <div className=Styles.ctaContainer>
-        <Button href="/genesis" width={`rem(13.)} paddingX=1. dark>
+        <Button href=`Internal("/genesis") width={`rem(13.)} paddingX=1. dark>
           <img src="/static/img/promo-logo.svg" height="40" />
           <Spacer width=0.5 />
           <span> {React.string("Join Genesis Token Program")} </span>
