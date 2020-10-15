@@ -33,7 +33,8 @@ let fetchStatistics = () => {
 
 module Styles = {
   open Css;
-  let container = style([marginTop(`rem(5.))]);
+  let container =
+    style([media(Theme.MediaQuery.tablet, [marginTop(`rem(5.))])]);
   let header =
     merge([
       Theme.Type.h1,
@@ -49,10 +50,11 @@ module Styles = {
     style([
       display(`flex),
       flexDirection(`column),
-      paddingTop(`rem(2.8)),
+      padding2(~v=`rem(2.8), ~h=`rem(2.5)),
+      media(Theme.MediaQuery.tablet, [padding2(~v=`zero, ~h=`zero)]),
       media(
         Theme.MediaQuery.desktop,
-        [flexDirection(`row), paddingTop(`zero), marginTop(`rem(3.5))],
+        [flexDirection(`row), paddingTop(`zero)],
       ),
     ]);
 
@@ -60,24 +62,20 @@ module Styles = {
     merge([
       Theme.Type.paragraphSmall,
       style([
-        display(none),
         textAlign(`left),
         fontWeight(`normal),
         color(Theme.Colors.black),
+        marginTop(`rem(4.)),
         media(
           Theme.MediaQuery.notMobile,
-          [
-            display(`block),
-            marginTop(`rem(3.5)),
-            marginBottom(`rem(1.5)),
-          ],
+          [marginTop(`rem(3.5)), marginBottom(`rem(1.5))],
         ),
       ]),
     ]);
 
   let disclaimer =
     merge([
-      Theme.Type.paragraphSmall,
+      Theme.Type.tooltip,
       style([
         marginTop(`rem(3.6)),
         color(Theme.Colors.greyScale),
@@ -86,7 +84,7 @@ module Styles = {
           [
             display(`inline),
             marginTop(`rem(4.6)),
-            important(fontSize(`px(13))),
+            marginBottom(`rem(4.6)),
             lineHeight(`rem(1.)),
           ],
         ),
@@ -96,20 +94,18 @@ module Styles = {
     style([
       display(`flex),
       flexDirection(`column),
-      marginTop(`rem(3.)),
+      marginTop(`rem(4.)),
       media(
-        Theme.MediaQuery.notMobile,
+        Theme.MediaQuery.tablet,
         [flexDirection(`row), justifyContent(`flexStart)],
       ),
-      media(Theme.MediaQuery.tablet, [marginTop(`zero)]),
     ]);
 
   let heroLeft =
     style([
-      media(Theme.MediaQuery.tablet, [marginBottom(`rem(3.))]),
       media(
-        Theme.MediaQuery.desktop,
-        [maxWidth(`rem(38.)), marginRight(`rem(7.))],
+        Theme.MediaQuery.tablet,
+        [width(`rem(39.)), marginTop(`rem(4.)), marginRight(`rem(6.))],
       ),
     ]);
   let heroRight =
@@ -118,13 +114,9 @@ module Styles = {
       position(`relative),
       top(`zero),
       flexDirection(`column),
-      paddingLeft(`rem(1.)),
-      alignItems(`center),
-      unsafe("width", "fit-content"),
-      media(
-        Theme.MediaQuery.tablet,
-        [paddingLeft(`zero), marginBottom(`rem(8.)), alignItems(`center)],
-      ),
+      width(`rem(40.)),
+      media(Theme.MediaQuery.tablet, [marginTop(`rem(4.))]),
+      media(Theme.MediaQuery.desktop, [marginTop(`zero)]),
     ]);
   let flexColumn =
     style([
@@ -137,7 +129,7 @@ module Styles = {
     style([
       media(
         Theme.MediaQuery.notMobile,
-        [position(`absolute), top(`rem(7.)), left(`zero)],
+        [position(`absolute), top(`rem(10.)), left(`zero)],
       ),
     ]);
 
@@ -158,79 +150,50 @@ module Styles = {
 module StatisticsRow = {
   module Styles = {
     open Css;
-    let statistic =
-      style([
-        Theme.Typeface.monumentGroteskMono,
-        textTransform(`uppercase),
-        fontSize(`px(14)),
-        color(Theme.Colors.black),
-        letterSpacing(`em(0.03)),
-      ]);
 
-    let value =
-      merge([
-        statistic,
-        style([
-          display(`flex),
-          media(
-            Theme.MediaQuery.tablet,
-            [
-              marginBottom(`px(3)),
-              fontSize(`rem(2.5)),
-              lineHeight(`rem(2.5)),
-            ],
-          ),
-        ]),
-      ]);
-    let container =
-      style([
-        display(`flex),
-        flexWrap(`wrap),
-        justifyContent(`spaceBetween),
-        media(
-          Theme.MediaQuery.tablet,
-          [gridTemplateColumns([`rem(12.), `rem(12.), `rem(12.)])],
-        ),
-      ]);
+    let container = style([display(`flex), justifyContent(`spaceBetween)]);
+
     let flexColumn =
       style([
         display(`flex),
         flexDirection(`column),
         justifyContent(`flexStart),
       ]);
-    let lastStatistic =
-      merge([
-        flexColumn,
-        style([
-          marginTop(`rem(1.)),
-          media("(min-width: 26.8rem)", [marginTop(`zero)]),
-        ]),
+
+    let h2 =
+      style([
+        Theme.Typeface.monumentGrotesk,
+        fontWeight(`normal),
+        fontSize(`rem(2.5)),
+        lineHeight(`rem(3.)),
+        color(Theme.Colors.digitalBlack),
+      ]);
+
+    let label =
+      style([
+        Theme.Typeface.monumentGroteskMono,
+        textTransform(`uppercase),
+        fontSize(`rem(0.875)),
+        lineHeight(`rem(1.)),
+        color(Theme.Colors.digitalBlack),
       ]);
   };
   [@react.component]
   let make = (~statistics) => {
     <div className=Styles.container>
       <div className=Styles.flexColumn>
-        <div className=Styles.value>
-          {React.string(statistics.participants)}
-        </div>
-        <h2 className=Styles.statistic> {React.string("Participants")} </h2>
+        <h2 className=Styles.h2> {React.string(statistics.participants)} </h2>
+        <p className=Styles.label> {React.string("Participants")} </p>
       </div>
       <div className=Styles.flexColumn>
-        <span className=Styles.value>
+        <h2 className=Styles.h2>
           {React.string(statistics.genesisMembers)}
-        </span>
-        <span className=Styles.statistic>
-          {React.string("Genesis Members")}
-        </span>
-      </div>
-      <div className=Styles.lastStatistic>
-        <div className=Styles.value>
-          {React.string(statistics.blockCount)}
-        </div>
-        <h2 className=Styles.statistic>
-          {React.string("Blocks Produced")}
         </h2>
+        <p className=Styles.label> {React.string("Genesis Members")} </p>
+      </div>
+      <div className=Styles.flexColumn>
+        <h2 className=Styles.h2> {React.string(statistics.blockCount)} </h2>
+        <p className=Styles.label> {React.string("Blocks Produced")} </p>
       </div>
     </div>;
   };
@@ -296,7 +259,7 @@ let make = () => {
       <div className=Styles.heroRight>
         <div className=Styles.buttonRow>
           <Button
-            href=`External("https://bit.ly/3dNmPle")
+            href={`External("https://bit.ly/3dNmPle")}
             bgColor=Theme.Colors.black
             width={`rem(15.)}
             paddingX=1.5>
@@ -306,7 +269,11 @@ let make = () => {
             <Icon kind=Icon.ArrowRightMedium />
           </Button>
           <Spacer width=2.0 height=1.0 />
-          <Button href=`Internal("/genesis") bgColor=Theme.Colors.black width={`rem(13.)} paddingX=1.5>
+          <Button
+            href={`Internal("/genesis")}
+            bgColor=Theme.Colors.black
+            width={`rem(13.)}
+            paddingX=1.5>
             <p className=Theme.Type.buttonLabel>
               {React.string("Genesis Program")}
             </p>

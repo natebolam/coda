@@ -1,13 +1,5 @@
 module Styles = {
   open Css;
-  let page =
-    style([
-      maxWidth(`rem(58.0)),
-      media(
-        Theme.MediaQuery.tablet,
-        [maxWidth(`rem(89.)), paddingTop(`rem(4.))],
-      ),
-    ]);
   let filters =
     style([
       display(`flex),
@@ -116,7 +108,7 @@ module ToggleButtons = {
         style([
           display(`flex),
           position(`relative),
-          width(`rem(40.5)),
+          media(Theme.MediaQuery.tablet, [width(`rem(40.5))]),
           borderTopLeftRadius(`px(4)),
           borderBottomRightRadius(`px(4)),
           borderTopRightRadius(`px(1)),
@@ -157,7 +149,7 @@ module ToggleButtons = {
     };
 
     <div className=Styles.flexColumn>
-      <h3 className=Theme.Type.inputLabel> {React.string("View")} </h3>
+      <div className=Theme.Type.inputLabel> {React.string("View")} </div>
       <Spacer height=0.5 />
       <div className=Styles.buttonRow> {renderToggleButtons()} </div>
     </div>;
@@ -175,10 +167,9 @@ module FilterDropdown = {
         height(`rem(4.5)),
         width(`percent(100.)),
         marginTop(`rem(2.0)),
-        media(Theme.MediaQuery.tablet, [display(`none)]),
         media(
-          Theme.MediaQuery.notMobile,
-          [width(`percent(48.)), marginTop(`zero)],
+          Theme.MediaQuery.tablet,
+          [display(`none), width(`percent(48.)), marginTop(`zero)],
         ),
       ]);
   };
@@ -236,8 +227,10 @@ let make = () => {
   };
 
   <Page title="Testnet Leaderboard">
+    <div className=Nav.Styles.spacer />
     <Wrapped>
-      <div className=Styles.page> <Summary /> </div>
+      <Summary />
+      <Spacer height=5. />
       <div className=Styles.filters>
         <SearchBar onUsernameEntered username={state.username} />
         <ToggleButtons
@@ -248,15 +241,15 @@ let make = () => {
             toggles,
           )}
         />
-        <FilterDropdown
-          currentFilter={string_of_filter(state.currentFilter)}
-          onFilterPress
-          filterLabels={Array.map(
-            filter => {string_of_filter(filter)},
-            filters,
-          )}
-        />
       </div>
+      <FilterDropdown
+        currentFilter={string_of_filter(state.currentFilter)}
+        onFilterPress
+        filterLabels={Array.map(
+          filter => {string_of_filter(filter)},
+          filters,
+        )}
+      />
       <Spacer height=1.5 />
       <Leaderboard
         search={state.username}

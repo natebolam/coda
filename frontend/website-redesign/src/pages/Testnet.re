@@ -60,7 +60,7 @@ module Styles = {
 
   let leaderboardContainer =
     style([
-      height(`rem(45.)),
+      height(`rem(65.)),
       width(`percent(100.)),
       position(`relative),
       overflow(`hidden),
@@ -69,6 +69,7 @@ module Styles = {
       marginLeft(`auto),
       marginRight(`auto),
       justifyContent(`center),
+      media(Theme.MediaQuery.tablet, [height(`rem(43.))]),
     ]);
 };
 
@@ -100,12 +101,16 @@ let make = () => {
           <h2 className=Theme.Type.h2>
             {React.string("Testnet Leaderboard")}
           </h2>
-          <p className=Theme.Type.paragraph>
+          <Spacer height=1. />
+          <p className=Theme.Type.paragraphMono>
             {React.string(
                "Mina rewards community members for contributing to Testnet with Testnet Points, making them stronger applicants for the Genesis Program. ",
              )}
           </p>
-          <Button bgColor=Theme.Colors.orange href=`Internal("/leaderboard")>
+          <Button
+            width={`rem(12.5)}
+            bgColor=Theme.Colors.orange
+            href={`Internal("/leaderboard")}>
             {React.string("See The Full Leaderboard")}
             <Icon kind=Icon.ArrowRightSmall />
           </Button>
@@ -132,13 +137,14 @@ let make = () => {
           background: Image("/static/img/MinaSpectrumPrimarySilver.jpg"),
           contentBackground:
             Image("/static/img/TestnetContentBlockBackground.png"),
-          button: {
-            FeaturedSingleRow.Row.buttonText: "See the Latest Challenges",
-            buttonColor: Theme.Colors.mint,
-            buttonTextColor: Theme.Colors.digitalBlack,
-            dark: true,
-            href: `External("http://bit.ly/TestnetChallenges"),
-          },
+          link:
+            FeaturedSingleRow.Row.Button({
+              FeaturedSingleRow.Row.buttonText: "See the Latest Challenges",
+              buttonColor: Theme.Colors.mint,
+              buttonTextColor: Theme.Colors.digitalBlack,
+              dark: true,
+              href: `External("http://bit.ly/TestnetChallenges"),
+            }),
         }
       />
       <TestnetRetroModule />

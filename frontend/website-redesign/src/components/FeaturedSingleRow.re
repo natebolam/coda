@@ -12,8 +12,18 @@ module Row = {
     buttonTextColor: Css.color,
     buttonText: string,
     dark: bool,
-    href: [`External(string) | `Internal(string)],
+    href: [ | `External(string) | `Internal(string)],
   };
+
+  type label = {
+    labelColor: Css.color,
+    labelText: string,
+    href: [ | `External(string) | `Internal(string)],
+  };
+
+  type link =
+    | Button(buttonType)
+    | Label(label);
 
   type t = {
     rowType,
@@ -24,7 +34,7 @@ module Row = {
     image: string,
     background: backgroundType,
     contentBackground: backgroundType,
-    button: buttonType,
+    link,
   };
 };
 
@@ -60,7 +70,7 @@ module SingleRow = {
         alignItems(`flexStart),
         justifyContent(`spaceBetween),
         padding(`rem(3.)),
-        important(backgroundSize(`cover)),
+        backgroundSize(`cover),
         media(
           Theme.MediaQuery.notMobile,
           [margin(`zero), overflow(`hidden), ...additionalNotMobileStyles],
@@ -104,14 +114,8 @@ module SingleRow = {
         maxWidth(`rem(53.)),
         paddingTop(`rem(8.)),
         bottom(`zero),
-        media(
-          Theme.MediaQuery.tablet,
-          [width(`percent(80.))],
-        ),
-        media(
-          Theme.MediaQuery.desktop,
-          [width(`percent(100.))],
-        ),
+        media(Theme.MediaQuery.tablet, [width(`percent(80.))]),
+        media(Theme.MediaQuery.desktop, [width(`percent(100.))]),
       ]);
   };
   module ImageLeftCopyRight = {
@@ -131,11 +135,15 @@ module SingleRow = {
         merge([
           RowStyles.contentBlock(size, backgroundImg),
           style([
-            top(`rem(12.6)),
-            bottom(`percent(6.)),
+            bottom(`zero),
             media(
               Theme.MediaQuery.tablet,
-              [bottom(`zero), top(`inherit_), right(`zero), width(`rem(29.))],
+              [
+                bottom(`percent(6.)),
+                top(`inherit_),
+                right(`zero),
+                width(`rem(29.)),
+              ],
             ),
           ]),
         ]);
@@ -155,15 +163,29 @@ module SingleRow = {
             </p>
           </div>
           <div className=Css.(style([marginTop(`rem(1.))]))>
-            <Button
-              bgColor={row.button.buttonColor}
-              dark={row.button.dark}
-              href={row.button.href}>
-              <span className=RowStyles.buttonText>
-                {React.string(row.button.buttonText)}
-                <Icon kind=Icon.ArrowRightMedium size=1.5 />
-              </span>
-            </Button>
+            {switch (row.link) {
+             | Button(button) =>
+               <Button
+                 textColor={button.buttonTextColor}
+                 bgColor={button.buttonColor}
+                 dark={button.dark}
+                 href={button.href}>
+                 <span className=RowStyles.buttonText>
+                   {React.string(button.buttonText)}
+                   <Icon kind=Icon.ArrowRightSmall size=1.5 />
+                 </span>
+               </Button>
+             | Label(label) =>
+               <Button.Link href={label.href}>
+                 <span>
+                   <Spacer height=1. />
+                   <span className=Theme.Type.buttonLink>
+                     <span> {React.string(label.labelText)} </span>
+                     <Icon kind=Icon.ArrowRightMedium />
+                   </span>
+                 </span>
+               </Button.Link>
+             }}
           </div>
         </div>
       </div>;
@@ -215,17 +237,29 @@ module SingleRow = {
             </p>
           </div>
           <div className=Css.(style([marginTop(`rem(1.))]))>
-              <Button
-                bgColor={row.button.buttonColor}
-                dark={row.button.dark}
-                href={row.button.href}>
-                <span className={Styles.buttonText(row.button.buttonTextColor)}>
-                  {React.string(row.button.buttonText)}
-                  <span className=Css.(style([marginTop(`rem(0.8))]))>
-                    <Icon kind=Icon.ArrowRightSmall />
-                  </span>
-                </span>
-              </Button>
+            {switch (row.link) {
+             | Button(button) =>
+               <Button
+                 textColor={button.buttonTextColor}
+                 bgColor={button.buttonColor}
+                 dark={button.dark}
+                 href={button.href}>
+                 <span className=RowStyles.buttonText>
+                   {React.string(button.buttonText)}
+                   <Icon kind=Icon.ArrowRightSmall size=1.5 />
+                 </span>
+               </Button>
+             | Label(label) =>
+               <Button.Link href={label.href}>
+                 <span>
+                   <Spacer height=1. />
+                   <span className=Theme.Type.link>
+                     <span> {React.string(label.labelText)} </span>
+                     <Icon kind=Icon.ArrowRightMedium />
+                   </span>
+                 </span>
+               </Button.Link>
+             }}
           </div>
         </div>
       </div>;

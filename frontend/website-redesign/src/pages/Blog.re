@@ -99,7 +99,7 @@ module MorePosts = {
               <li
                 className=Styles.postItem key={item.ContentType.BlogPost.slug}>
                 <ListModule.MainListing
-                  item=ContentType.NormalizedPressBlog.ofBlog(item)
+                  item={ContentType.NormalizedPressBlog.ofBlog(item)}
                   itemKind=ListModule.Blog
                 />
               </li>
@@ -115,7 +115,7 @@ module MorePosts = {
       <BlogModule.Title
         copy="More Blog posts"
         buttonCopy="See all posts"
-        buttonHref=`Internal("/blog/all")
+        buttonHref={`Internal("/blog/all")}
       />
       <Content posts />
     </div>;
@@ -175,13 +175,14 @@ let make = (~posts) => {
           image: "/static/img/BlogLandingHero.jpg",
           background: Image("/static/img/MinaSimplePattern1.jpg"),
           contentBackground: Image("/static/img/MinaSepctrumSecondary.png"),
-          button: {
-            buttonColor: Theme.Colors.orange,
-            buttonTextColor: Theme.Colors.white,
-            buttonText: "Read more",
-            dark: true,
-            href: `Internal("/blog/" ++ featured.slug),
-          },
+          link:
+            {FeaturedSingleRow.Row.Button({
+               buttonColor: Theme.Colors.orange,
+               buttonTextColor: Theme.Colors.white,
+               buttonText: "Read more",
+               dark: true,
+               href: `Internal("/blog/" ++ featured.slug),
+             })},
         }
       />
       <Wrapped>
